@@ -1,0 +1,123 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+}
+
+body {
+    background-color: #f57d7d;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.container {
+    background: #28e473;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    max-width: 350px;
+    width: 100%;
+    border-radius: 10px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.balance {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.balance h2 {
+    margin-top: 10px;
+    font-size: 24px;
+    color: #333;
+}
+
+.inc-exp-container {
+    display: flex;
+    justify-content: space-between;
+    margin: 20px 0;
+    background-color: #f7f7f7;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.inc-exp-container div {
+    text-align: center;
+    width: 45%;
+}
+
+.money {
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.money.plus {
+    color: #2ecc71;
+}
+
+.money.minus {
+    color: #e74c3c;
+}
+
+.list {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+.list li {
+    background-color: #f7f7f7;
+    padding: 10px;
+    margin: 10px 0;
+    display: flex;
+    justify-content: space-between;
+    border-right: 5px solid #e74c3c;
+    border-radius: 5px;
+}
+
+.list li.plus {
+    border-right: 5px solid #2ecc71;
+}
+
+.list button {
+    background-color: transparent;
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+}
+
+.form-control {
+    margin-bottom: 10px;
+}
+
+.form-control label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.form-control input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.btn {
+    width: 100%;
+    padding: 10px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background-color: #555;
+}
