@@ -6,6 +6,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 const path = require('path');
+const validator = require('validator');
 
 dotenv.config();
 const app = express();
@@ -18,16 +19,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Set up session middleware (for login session tracking)
 app.use(session({
-    secret: 'your secret code',
+    secret: process.env.SESSION_SECRET || 'your_secret_code',
     resave: false,
     saveUninitialized: true,
+    cookie: { maxAge: 60 * 60 * 1000 }, // Session expires after 1 hour
 }));
 
 // Create a MySQL connection
 const connection = mysql.createConnection({
-    host: process.env.Hostname,
-    user: process.env.Username,
-    password: process.env.password,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+    database: process.env.DB_NAME
 });
 
 // Connect to the database
@@ -37,60 +40,76 @@ connection.connect((err) => {
         return;
     }
     console.log('Database server connected successfully');
-    
-    // Select the database
-    connection.query('USE plp_users', (err) => {
+
+    // Create users table if it doesn't exist
+    const userstable = `
+        CREATE TABLE IF NOT EXISTS users (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            email VARCHAR(100) UNIQUE,
+            username VARCHAR(100),
+            password VARCHAR(255)
+        )`;
+    connection.query(userstable, (err) => {
         if (err) {
-            console.error('Error selecting database:', err);
-            return;
+            console.error('Error creating users table:', err);
+        } else {
+            console.log('Users table created successfully.');
         }
-        console.log('Database selected.');
     });
 
-     // Create the table if it doesn't exist
-     const userstable = `CREATE TABLE IF NOT EXISTS users (
-         id INT PRIMARY KEY AUTO_INCREMENT,
-         email VARCHAR(100) UNIQUE,
-         username VARCHAR(100),
-         password VARCHAR(255)
-     )`;
-    connection.query(userstable, (err, result) => {
+    // Create transactions table if it doesn't exist
+    const expensestable = `
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            amount DECIMAL(10, 2) NOT NULL,
+            category VARCHAR(50),
+            date DATE,
+            notes VARCHAR(255)
+        )`;
+    connection.query(expensestable, (err) => {
         if (err) {
-            console.error('Error creating table:', err);
-             return;
+            console.error('Error creating transactions table:', err);
+        } else {
+            console.log('Transactions table created successfully.');
         }
-        console.log('Users table created successfully.');
     });
-    const expensestable = `CREATE TABLE IF NOT EXISTS transactions(
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        amount DECIMAL(10,2) NOT NULL,
-        category VARCHAR(50),
-        date DATE,
-        notes VARCHAR(255)
-    )`;
-    connection.query(expensestable, (err,result)=>{
-        if (err) return console.log(err);
-         console.log("transactions table created Successfully")
-    });
-
 });
 
 // POST Route: Register a new user
 app.post('/register', (req, res) => {
     const { email, username, password } = req.body;
 
-    // Hash the password before saving it
-    bcrypt.hash(password, 10, (err, hashedPassword) => {
+    // Validate input
+    if (!validator.isEmail(email)) {
+        return res.status(400).send('Invalid email format');
+    }
+    if (!validator.isStrongPassword(password, { minLength: 8 })) {
+        return res.status(400).send('Password must be at least 8 characters long and contain a mix of letters, numbers, and symbols.');
+    }
+
+    // Check if user already exists
+    const checkUserQuery = `SELECT * FROM users WHERE email = ?`;
+    connection.query(checkUserQuery, [email], (err, results) => {
         if (err) {
-            return res.status(500).send('Error hashing password');
+            return res.status(500).send('Database error');
+        }
+        if (results.length > 0) {
+            return res.status(400).send('User already exists');
         }
 
-        const query = `INSERT INTO users (email, username, password) VALUES (?, ?, ?)`;
-        connection.query(query, [email, username, hashedPassword], (err, result) => {
+        // Hash the password before saving it
+        bcrypt.hash(password, 10, (err, hashedPassword) => {
             if (err) {
-                return res.status(500).send('Error saving user');
+                return res.status(500).send('Error hashing password');
             }
-            res.send('User registered successfully!');
+
+            const query = `INSERT INTO users (email, username, password) VALUES (?, ?, ?)`;
+            connection.query(query, [email, username, hashedPassword], (err) => {
+                if (err) {
+                    return res.status(500).send('Error saving user');
+                }
+                res.send('User registered successfully!');
+            });
         });
     });
 });
@@ -121,18 +140,18 @@ app.post('/login', (req, res) => {
 
             // Create session and store the user ID
             req.session.userId = user.id;
+            req.session.username = user.username;
 
             // Redirect the user to the expense tracker page (index.html)
-            res.redirect('/index');  // Redirect to the /index route which serves index.html
+            res.redirect('/index');
         });
     });
 });
 
-
 // Middleware to protect routes
 function checkAuth(req, res, next) {
     if (!req.session.userId) {
-        return res.status(401).send('Unauthorized access');
+        return res.redirect('/login');  // Redirect to login page if not authenticated
     }
     next();
 }
@@ -141,12 +160,25 @@ function checkAuth(req, res, next) {
 app.get('/index', checkAuth, (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-app.get('/login', (req,res)=>{
-    res.sendFile(path.join(__dirname, 'public','login.html'));
+
+// GET Route: Login
+app.get('/login', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.get('/register', (req,res)=>{
-    res.sendFile(path.join(__dirname, 'public','register.html'))
+// GET Route: Register
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'register.html'));
+});
+
+// GET Route: Logout
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).send('Error logging out');
+        }
+        res.redirect('/login');
+    });
 });
 
 // Start the server
